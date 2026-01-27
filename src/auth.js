@@ -1,0 +1,35 @@
+const admin = require("firebase-admin");
+
+// Firebase service account JSON will be injected via env
+const serviceAccount = JSON.parse(
+  Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT, "base64").toString("utf8")
+);
+
+if (!serviceAccount) {
+  throw new Error("FIREBASE_SERVICE_ACCOUNT not set");
+}
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
+
+async function verifyFirebaseToken(req, res, next) {
+  const header = req.headers.authorization;
+
+  if (!header || !header.startsWith("Bearer ")) {
+    return res.status(401).json({ error: "Missing token" });
+  }
+
+  const token = header.split(" ")[1];
+
+  try {
+    const decoded = await admin.auth().verifyIdToken(token);
+    req.user = decoded;
+    next();
+  } catch (err) {
+    console.error("Token verification failed", err);
+    res.status(401).json({ error: "Invalid token" });
+  }
+}
+
+module.exports = { verifyFirebaseToken };
