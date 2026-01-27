@@ -38,7 +38,11 @@ async function callOpenAI(apiKey, payload) {
 // Chat endpoint
 router.post("/chat", verifyFirebaseToken, async (req, res) => {
   try {
-    const schoolId = req.user.schoolId; // must exist in Firebase custom claims
+    const schoolId = req.user.schoolId || req.body.schoolId;
+
+if (!schoolId) {
+  return res.status(400).json({ error: "School ID missing" });
+}
 
     const record = await SchoolKey.findOne({ schoolId });
 
