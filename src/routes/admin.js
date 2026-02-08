@@ -1,12 +1,12 @@
 const express = require("express");
 const router = express.Router();
 
-const { verifyFirebaseToken } = require("../auth");
+const { verifyAdminKey } = require("../auth");
 const { encrypt } = require("../crypto");
 
 const mongoose = require("mongoose");
 
-// ----- Mongo Model (inline for simplicity) -----
+// ----- Mongo Model -----
 
 const SchoolKeySchema = new mongoose.Schema({
   schoolId: { type: String, unique: true },
@@ -21,21 +21,12 @@ const SchoolKey =
 
 // ----------------------------------------------
 
-// Admin-only middleware
-function requireAdmin(req, res, next) {
-  // expects custom claim: admin = true
-  if (!req.user.admin) {
-    return res.status(403).json({ error: "Admin only" });
-  }
-  next();
-}
+// ======================================================
+// 🔐 SUPER ADMIN — STORE / UPDATE SCHOOL KEYS
+// ======================================================
 
-// Add / update keys for school
-router.post(
-  "/school-keys",
-  verifyFirebaseToken,
-  requireAdmin,
-  async (req, res) => {
+router.post("/school-keys", verifyAdminKey, async (req, res) => {
+  try {
     const { schoolId, keys } = req.body;
 
     if (!schoolId || !keys) {
@@ -49,30 +40,47 @@ router.post(
       {
         schoolId,
         keysEncrypted: encryptedBlob,
+        active: true,
         updatedAt: new Date(),
       },
       { upsert: true, new: true }
     );
 
-    res.json({ success: true, schoolId: doc.schoolId });
+    res.json({
+      success: true,
+      schoolId: doc.schoolId,
+    });
+  } catch (err) {
+    console.error("ADMIN KEY UPLOAD ERROR:", err);
+    res.status(500).json({ error: "Failed to store keys" });
   }
-);
+});
 
-// Disable a school
-router.post(
-  "/school-disable",
-  verifyFirebaseToken,
-  requireAdmin,
-  async (req, res) => {
+// ======================================================
+// 🚫 DISABLE SCHOOL
+// ======================================================
+
+router.post("/school-disable", verifyAdminKey, async (req, res) => {
+  try {
     const { schoolId } = req.body;
+
+    if (!schoolId) {
+      return res.status(400).json({ error: "schoolId required" });
+    }
 
     await SchoolKey.updateOne(
       { schoolId },
-      { active: false, updatedAt: new Date() }
+      {
+        active: false,
+        updatedAt: new Date(),
+      }
     );
 
     res.json({ success: true });
+  } catch (err) {
+    console.error("ADMIN DISABLE ERROR:", err);
+    res.status(500).json({ error: "Failed to disable school" });
   }
-);
+});
 
 module.exports = router;
