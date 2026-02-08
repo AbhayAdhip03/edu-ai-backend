@@ -6,8 +6,6 @@ const { encrypt } = require("../crypto");
 
 const mongoose = require("mongoose");
 
-// ----- Mongo Model -----
-
 const SchoolKeySchema = new mongoose.Schema({
   schoolId: { type: String, unique: true },
   keysEncrypted: String,
@@ -19,11 +17,9 @@ const SchoolKey =
   mongoose.models.SchoolKey ||
   mongoose.model("SchoolKey", SchoolKeySchema);
 
-// ----------------------------------------------
-
-// ======================================================
-// 🔐 SUPER ADMIN — STORE / UPDATE SCHOOL KEYS
-// ======================================================
+// ==========================================
+// 🔐 ADMIN — STORE / UPDATE SCHOOL KEYS
+// ==========================================
 
 router.post("/school-keys", verifyAdminKey, async (req, res) => {
   try {
@@ -56,9 +52,9 @@ router.post("/school-keys", verifyAdminKey, async (req, res) => {
   }
 });
 
-// ======================================================
+// ==========================================
 // 🚫 DISABLE SCHOOL
-// ======================================================
+// ==========================================
 
 router.post("/school-disable", verifyAdminKey, async (req, res) => {
   try {
