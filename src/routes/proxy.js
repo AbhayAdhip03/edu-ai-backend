@@ -30,7 +30,7 @@ const MODELS = {
   helpbot: "google/gemma-2-9b-it",
 
   // IMAGE
-  image: "black-forest-labs/flux-2-klein",
+  image: "sourceful/riverflow-v2-pro",
 };
 
 /* ================================
@@ -68,6 +68,7 @@ async function callOpenRouterImage(apiKey, prompt) {
     {
       model: MODELS.image,
       prompt,
+      size: "1024x1024",
     },
     {
       headers: {
