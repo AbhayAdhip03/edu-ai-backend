@@ -22,20 +22,22 @@ const SchoolKey =
   mongoose.model("SchoolKey", SchoolKeySchema);
 
 /* ================================
-   MODEL MAP (CHANGE HERE ONLY)
+   MODEL MAP
 ================================ */
 
 const MODELS = {
   neural: "meta-llama/llama-3.1-8b-instruct",
   helpbot: "google/gemma-2-9b-it",
+
+  // IMAGE
   image: "black-forest-labs/flux-2-klein",
 };
 
 /* ================================
-   OpenRouter Call
+   OpenRouter Chat Call
 ================================ */
 
-async function callOpenRouter(apiKey, model, messages) {
+async function callOpenRouterChat(apiKey, model, messages) {
   const res = await axios.post(
     "https://openrouter.ai/api/v1/chat/completions",
     {
@@ -50,6 +52,31 @@ async function callOpenRouter(apiKey, model, messages) {
         "X-Title": "QubiQ Edu AI",
       },
       timeout: 60_000,
+    }
+  );
+
+  return res.data;
+}
+
+/* ================================
+   OpenRouter Image Call
+================================ */
+
+async function callOpenRouterImage(apiKey, prompt) {
+  const res = await axios.post(
+    "https://openrouter.ai/api/v1/images/generations",
+    {
+      model: MODELS.image,
+      prompt,
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://qubiq.ai",
+        "X-Title": "QubiQ Edu AI",
+      },
+      timeout: 120_000,
     }
   );
 
@@ -90,7 +117,7 @@ router.post("/chat", verifyFirebaseToken, async (req, res) => {
       { role: "user", content: req.body.prompt },
     ];
 
-    const result = await callOpenRouter(apiKey, model, messages);
+    const result = await callOpenRouterChat(apiKey, model, messages);
 
     const reply =
       result?.choices?.[0]?.message?.content ||
@@ -98,12 +125,65 @@ router.post("/chat", verifyFirebaseToken, async (req, res) => {
 
     res.json({ reply });
   } catch (err) {
-    console.error(
-      "AI ERROR:",
-      err.response?.data || err.message
-    );
+    console.error("CHAT ERROR:", err.response?.data || err.message);
 
     res.status(500).json({ error: "AI call failed" });
+  }
+});
+
+/* ================================
+   IMAGE ENDPOINT  ✅ NEW
+================================ */
+
+router.post("/image", verifyFirebaseToken, async (req, res) => {
+  try {
+    const schoolId = req.user.schoolId || req.body.schoolId;
+    const prompt = req.body.prompt;
+
+    if (!schoolId) {
+      return res.status(400).json({ error: "School ID missing" });
+    }
+
+    if (!prompt) {
+      return res.status(400).json({ error: "Prompt missing" });
+    }
+
+    const record = await SchoolKey.findOne({ schoolId });
+
+    if (!record || !record.active) {
+      return res.status(403).json({ error: "School disabled" });
+    }
+
+    const keys = JSON.parse(decrypt(record.keysEncrypted));
+
+    const apiKey = keys.image;
+
+    if (!apiKey) {
+      return res
+        .status(400)
+        .json({ error: "Image key missing" });
+    }
+
+    const result = await callOpenRouterImage(apiKey, prompt);
+
+    const imageUrl =
+      result?.data?.[0]?.url ||
+      result?.data?.[0]?.b64_json ||
+      null;
+
+    if (!imageUrl) {
+      return res
+        .status(500)
+        .json({ error: "Image generation failed" });
+    }
+
+    res.json({
+      image: imageUrl,
+    });
+  } catch (err) {
+    console.error("IMAGE ERROR:", err.response?.data || err.message);
+
+    res.status(500).json({ error: "Image generation failed" });
   }
 });
 
