@@ -23,19 +23,19 @@ const SchoolKey =
   mongoose.model("SchoolKey", SchoolKeySchema);
 
 /* ================================
-   MODEL MAP  🔥 CHANGE MODELS HERE
+   MODEL MAP
 ================================ */
 
 const MODELS = {
   neural: "meta-llama/llama-3.1-8b-instruct",
   helpbot: "google/gemma-2-9b-it",
 
-  // IMAGE MODEL (OpenRouter)
+  // IMAGE MODEL
   image: "sourceful/riverflow-v2-pro",
 };
 
 /* ================================
-   OpenRouter CHAT CALL
+   OPENROUTER CHAT CALL
 ================================ */
 
 async function callOpenRouterChat(apiKey, model, messages) {
@@ -60,20 +60,16 @@ async function callOpenRouterChat(apiKey, model, messages) {
 }
 
 /* ================================
-   OpenRouter IMAGE CALL (CHAT API)
+   OPENROUTER IMAGE CALL
 ================================ */
 
 async function callOpenRouterImage(apiKey, prompt) {
   const res = await axios.post(
-    "https://openrouter.ai/api/v1/chat/completions",
+    "https://openrouter.ai/api/v1/images/generations",
     {
       model: MODELS.image,
-      messages: [
-        {
-          role: "user",
-          content: `Generate an image of: ${prompt}. Return ONLY the image URL.`,
-        },
-      ],
+      prompt,
+      size: "1024x1024",
     },
     {
       headers: {
@@ -109,7 +105,6 @@ router.post("/chat", verifyFirebaseToken, async (req, res) => {
     }
 
     const keys = JSON.parse(decrypt(record.keysEncrypted));
-
     const apiKey = keys.chat;
 
     if (!apiKey) {
@@ -133,7 +128,10 @@ router.post("/chat", verifyFirebaseToken, async (req, res) => {
   } catch (err) {
     console.error("CHAT ERROR:", err.response?.data || err.message);
 
-    res.status(500).json({ error: "AI call failed" });
+    res.status(500).json({
+      error: "AI call failed",
+      details: err.response?.data || err.message,
+    });
   }
 });
 
@@ -161,33 +159,39 @@ router.post("/image", verifyFirebaseToken, async (req, res) => {
     }
 
     const keys = JSON.parse(decrypt(record.keysEncrypted));
-
     const apiKey = keys.image;
 
     if (!apiKey) {
-      return res
-        .status(400)
-        .json({ error: "Image key missing" });
+      return res.status(400).json({ error: "Image key missing" });
     }
 
     const result = await callOpenRouterImage(apiKey, prompt);
 
-    const imageUrl =
-      result?.choices?.[0]?.message?.content || null;
+    console.log("OPENROUTER IMAGE RESULT:", result);
 
-    if (!imageUrl) {
-      return res
-        .status(500)
-        .json({ error: "Image generation failed" });
+    const image =
+      result?.data?.[0]?.url ||
+      result?.data?.[0]?.b64_json ||
+      null;
+
+    if (!image) {
+      return res.status(500).json({
+        error: "Image generation failed",
+        raw: result,
+      });
     }
 
-    res.json({
-      image: imageUrl,
-    });
+    res.json({ image });
   } catch (err) {
-    console.error("IMAGE ERROR:", err.response?.data || err.message);
+    console.error(
+      "IMAGE ERROR:",
+      err.response?.data || err.message
+    );
 
-    res.status(500).json({ error: "Image generation failed" });
+    res.status(500).json({
+      error: "Image generation failed",
+      details: err.response?.data || err.message,
+    });
   }
 });
 
