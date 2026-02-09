@@ -35,10 +35,10 @@ const MODELS = {
 };
 
 /* ================================
-   OPENROUTER CHAT CALL
+   OpenRouter Chat Call
 ================================ */
 
-async function callOpenRouterChat(apiKey, model, messages) {
+async function callOpenRouter(apiKey, model, messages) {
   const res = await axios.post(
     "https://openrouter.ai/api/v1/chat/completions",
     {
@@ -52,33 +52,7 @@ async function callOpenRouterChat(apiKey, model, messages) {
         "HTTP-Referer": "https://qubiq.ai",
         "X-Title": "QubiQ Edu AI",
       },
-      timeout: 60_000,
-    }
-  );
-
-  return res.data;
-}
-
-/* ================================
-   OPENROUTER IMAGE CALL
-================================ */
-
-async function callOpenRouterImage(apiKey, prompt) {
-  const res = await axios.post(
-    "https://openrouter.ai/api/v1/images/generations",
-    {
-      model: MODELS.image,
-      prompt,
-      size: "1024x1024",
-    },
-    {
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://qubiq.ai",
-        "X-Title": "QubiQ Edu AI",
-      },
-      timeout: 120_000,
+      timeout: 90_000,
     }
   );
 
@@ -105,6 +79,7 @@ router.post("/chat", verifyFirebaseToken, async (req, res) => {
     }
 
     const keys = JSON.parse(decrypt(record.keysEncrypted));
+
     const apiKey = keys.chat;
 
     if (!apiKey) {
@@ -118,7 +93,7 @@ router.post("/chat", verifyFirebaseToken, async (req, res) => {
       { role: "user", content: req.body.prompt },
     ];
 
-    const result = await callOpenRouterChat(apiKey, model, messages);
+    const result = await callOpenRouter(apiKey, model, messages);
 
     const reply =
       result?.choices?.[0]?.message?.content ||
@@ -126,17 +101,17 @@ router.post("/chat", verifyFirebaseToken, async (req, res) => {
 
     res.json({ reply });
   } catch (err) {
-    console.error("CHAT ERROR:", err.response?.data || err.message);
+    console.error(
+      "CHAT ERROR:",
+      err.response?.data || err.message
+    );
 
-    res.status(500).json({
-      error: "AI call failed",
-      details: err.response?.data || err.message,
-    });
+    res.status(500).json({ error: "AI call failed" });
   }
 });
 
 /* ================================
-   IMAGE ENDPOINT
+   IMAGE ENDPOINT  ✅ FIXED
 ================================ */
 
 router.post("/image", verifyFirebaseToken, async (req, res) => {
@@ -159,29 +134,39 @@ router.post("/image", verifyFirebaseToken, async (req, res) => {
     }
 
     const keys = JSON.parse(decrypt(record.keysEncrypted));
+
     const apiKey = keys.image;
 
     if (!apiKey) {
-      return res.status(400).json({ error: "Image key missing" });
+      return res
+        .status(400)
+        .json({ error: "Image key missing" });
     }
 
-    const result = await callOpenRouterImage(apiKey, prompt);
+    const result = await callOpenRouter(apiKey, MODELS.image, [
+      {
+        role: "user",
+        content: prompt,
+      },
+    ]);
 
-    console.log("OPENROUTER IMAGE RESULT:", result);
-
-    const image =
-      result?.data?.[0]?.url ||
-      result?.data?.[0]?.b64_json ||
+    // Different models respond differently — handle both
+    const imageUrl =
+      result?.choices?.[0]?.message?.images?.[0]?.url ||
+      result?.choices?.[0]?.message?.content ||
       null;
 
-    if (!image) {
+    if (!imageUrl) {
+      console.error("IMAGE RAW RESPONSE:", result);
+
       return res.status(500).json({
         error: "Image generation failed",
-        raw: result,
       });
     }
 
-    res.json({ image });
+    res.json({
+      image: imageUrl,
+    });
   } catch (err) {
     console.error(
       "IMAGE ERROR:",
@@ -190,7 +175,6 @@ router.post("/image", verifyFirebaseToken, async (req, res) => {
 
     res.status(500).json({
       error: "Image generation failed",
-      details: err.response?.data || err.message,
     });
   }
 });
