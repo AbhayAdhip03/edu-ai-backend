@@ -10,6 +10,7 @@ const axios = require("axios");
 /* ================================
    Mongo Model
 ================================ */
+
 const SchoolKeySchema = new mongoose.Schema({
   schoolId: { type: String, unique: true },
   keysEncrypted: String,
@@ -22,19 +23,19 @@ const SchoolKey =
   mongoose.model("SchoolKey", SchoolKeySchema);
 
 /* ================================
-   MODEL MAP
+   MODEL MAP  🔥 CHANGE MODELS HERE
 ================================ */
 
 const MODELS = {
   neural: "meta-llama/llama-3.1-8b-instruct",
   helpbot: "google/gemma-2-9b-it",
 
-  // IMAGE
+  // IMAGE MODEL (OpenRouter)
   image: "sourceful/riverflow-v2-pro",
 };
 
 /* ================================
-   OpenRouter Chat Call
+   OpenRouter CHAT CALL
 ================================ */
 
 async function callOpenRouterChat(apiKey, model, messages) {
@@ -59,16 +60,20 @@ async function callOpenRouterChat(apiKey, model, messages) {
 }
 
 /* ================================
-   OpenRouter Image Call
+   OpenRouter IMAGE CALL (CHAT API)
 ================================ */
 
 async function callOpenRouterImage(apiKey, prompt) {
   const res = await axios.post(
-    "https://openrouter.ai/api/v1/images/generations",
+    "https://openrouter.ai/api/v1/chat/completions",
     {
       model: MODELS.image,
-      prompt,
-      size: "1024x1024",
+      messages: [
+        {
+          role: "user",
+          content: `Generate an image of: ${prompt}. Return ONLY the image URL.`,
+        },
+      ],
     },
     {
       headers: {
@@ -133,7 +138,7 @@ router.post("/chat", verifyFirebaseToken, async (req, res) => {
 });
 
 /* ================================
-   IMAGE ENDPOINT  ✅ NEW
+   IMAGE ENDPOINT
 ================================ */
 
 router.post("/image", verifyFirebaseToken, async (req, res) => {
@@ -168,9 +173,7 @@ router.post("/image", verifyFirebaseToken, async (req, res) => {
     const result = await callOpenRouterImage(apiKey, prompt);
 
     const imageUrl =
-      result?.data?.[0]?.url ||
-      result?.data?.[0]?.b64_json ||
-      null;
+      result?.choices?.[0]?.message?.content || null;
 
     if (!imageUrl) {
       return res
