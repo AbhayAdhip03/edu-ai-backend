@@ -60,16 +60,20 @@ async function callOpenRouterChat(apiKey, model, messages) {
 }
 
 /* ================================
-   OpenRouter IMAGE Call
+   IMAGE VIA CHAT (FIXED)
 ================================ */
 
-async function callOpenRouterImage(apiKey, prompt) {
+async function callOpenRouterImageViaChat(apiKey, prompt) {
   const res = await axios.post(
-    "https://openrouter.ai/api/v1/images/generations",
+    "https://openrouter.ai/api/v1/chat/completions",
     {
       model: MODELS.image,
-      prompt,
-      size: "1024x1024",
+      messages: [
+        {
+          role: "user",
+          content: `Generate an image for: ${prompt}. Reply ONLY with a direct image URL.`,
+        },
+      ],
     },
     {
       headers: {
@@ -140,7 +144,7 @@ router.post("/chat", verifyFirebaseToken, async (req, res) => {
 });
 
 /* ================================
-   IMAGE ENDPOINT
+   IMAGE ENDPOINT (FIXED)
 ================================ */
 
 router.post("/image", verifyFirebaseToken, async (req, res) => {
@@ -170,25 +174,22 @@ router.post("/image", verifyFirebaseToken, async (req, res) => {
       return res.status(400).json({ error: "Image key missing" });
     }
 
-    const result = await callOpenRouterImage(apiKey, prompt);
+    const result = await callOpenRouterImageViaChat(apiKey, prompt);
 
-    console.log("🖼️ IMAGE RAW RESULT:", JSON.stringify(result));
+    console.log("🖼️ IMAGE CHAT RAW:", JSON.stringify(result));
 
-    let image = null;
+    const content =
+      result?.choices?.[0]?.message?.content;
 
-    if (result?.data?.[0]?.url) {
-      image = result.data[0].url;
-    } else if (result?.data?.[0]?.b64_json) {
-      image = `data:image/png;base64,${result.data[0].b64_json}`;
-    }
-
-    if (!image) {
-      console.error("❌ IMAGE FORMAT ERROR:", result);
+    if (!content) {
       return res.status(500).json({
         error: "Image generation failed",
         raw: result,
       });
     }
+
+    const urlMatch = content.match(/https?:\/\/\S+/);
+    const image = urlMatch ? urlMatch[0] : content;
 
     res.json({ image });
   } catch (err) {
