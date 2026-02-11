@@ -30,7 +30,7 @@ const MODELS = {
   neural: "meta-llama/llama-3.1-8b-instruct",
   helpbot: "google/gemma-2-9b-it",
 
-  // IMAGE MODEL
+  // IMAGE MODEL (OpenRouter-supported)
   image: "sourceful/riverflow-v2-pro",
 };
 
@@ -60,7 +60,7 @@ async function callOpenRouterChat(apiKey, model, messages) {
 }
 
 /* ================================
-   IMAGE VIA CHAT (FIXED)
+   IMAGE VIA CHAT (CORRECT WAY)
 ================================ */
 
 async function callOpenRouterImageViaChat(apiKey, prompt) {
@@ -109,7 +109,6 @@ router.post("/chat", verifyFirebaseToken, async (req, res) => {
     }
 
     const keys = JSON.parse(decrypt(record.keysEncrypted));
-
     const apiKey = keys.chat;
 
     if (!apiKey) {
@@ -167,7 +166,6 @@ router.post("/image", verifyFirebaseToken, async (req, res) => {
     }
 
     const keys = JSON.parse(decrypt(record.keysEncrypted));
-
     const apiKey = keys.image;
 
     if (!apiKey) {
@@ -178,8 +176,7 @@ router.post("/image", verifyFirebaseToken, async (req, res) => {
 
     console.log("🖼️ IMAGE CHAT RAW:", JSON.stringify(result));
 
-    const content =
-      result?.choices?.[0]?.message?.content;
+    const content = result?.choices?.[0]?.message?.content;
 
     if (!content) {
       return res.status(500).json({
