@@ -38,7 +38,7 @@ const MODELS = {
    OpenRouter CHAT Call
 ================================ */
 
-async function callOpenRouterChat(apiKey, model, messages) {
+async function callOpenRouterChat(apiKey, prompt, width, height, steps) {
   const res = await axios.post(
     "https://openrouter.ai/api/v1/chat/completions",
     {
