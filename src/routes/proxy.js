@@ -31,7 +31,7 @@ const MODELS = {
   helpbot: "google/gemma-2-9b-it",
 
   // IMAGE MODEL (OpenRouter-supported)
-  image: "sourceful/riverflow-v2-pro",
+  image: "black-forest-labs/flux.2-klein-4b",
 };
 
 /* ================================
