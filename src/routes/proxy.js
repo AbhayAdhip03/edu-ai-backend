@@ -31,7 +31,7 @@ const MODELS = {
   helpbot: "google/gemma-2-9b-it",
 
   // IMAGE MODEL (OpenRouter-supported)
-  image: "black-forest-labs/flux.2-klein-4b",
+  image: "sourceful/riverflow-v2-pro",
 };
 
 /* ================================
@@ -63,7 +63,6 @@ async function callOpenRouterChat(apiKey, model, messages) {
    IMAGE VIA CHAT (CORRECT WAY)
 ================================ */
 
-// FIX 1: Added width, height, steps to arguments
 async function callOpenRouterImageViaChat(apiKey, prompt, width, height, steps) {
   const res = await axios.post(
     "https://openrouter.ai/api/v1/chat/completions",
@@ -82,7 +81,7 @@ async function callOpenRouterImageViaChat(apiKey, prompt, width, height, steps) 
         height: height,
         steps: steps
       }
-    }, // FIX 2: Added missing closing brace for body object
+    }, // Closing brace for body object
     {
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -158,7 +157,7 @@ router.post("/image", verifyFirebaseToken, async (req, res) => {
   try {
     const schoolId = req.user.schoolId || req.body.schoolId;
     const prompt = req.body.prompt;
-
+    
     // Capture parameters from the app request
     const width = req.body.width || 512;
     const height = req.body.height || 512;
@@ -185,22 +184,37 @@ router.post("/image", verifyFirebaseToken, async (req, res) => {
       return res.status(400).json({ error: "Image key missing" });
     }
 
-    // FIX 3: Call with ALL arguments
+    // FIX: Call with ALL arguments
     const result = await callOpenRouterImageViaChat(apiKey, prompt, width, height, steps);
 
-    console.log("🖼️ IMAGE CHAT RAW:", JSON.stringify(result));
+    // console.log("🖼️ IMAGE CHAT RAW:", JSON.stringify(result)); // Uncomment for debug
 
-    const content = result?.choices?.[0]?.message?.content;
+    // --- NEW PARSING LOGIC ---
+    let image = null;
+    const choice = result?.choices?.[0];
 
-    if (!content) {
+    if (choice && choice.message) {
+      // 1. Check for standard content (URL string)
+      if (choice.message.content) {
+          const urlMatch = choice.message.content.match(/https?:\/\/\S+/);
+          image = urlMatch ? urlMatch[0] : choice.message.content;
+      } 
+      
+      // 2. Check for OpenRouter native image array (base64 or object)
+      // This is often where "Sourceful" models return the image!
+      if (!image && choice.message.images && choice.message.images.length > 0) {
+          // It could be a URL inside, or a direct base64 string
+          const imgObj = choice.message.images[0];
+          image = typeof imgObj === 'string' ? imgObj : (imgObj.url || imgObj.image_url?.url);
+      }
+    }
+
+    if (!image) {
       return res.status(500).json({
-        error: "Image generation failed",
+        error: "Image generation failed - No image found in response",
         raw: result,
       });
     }
-
-    const urlMatch = content.match(/https?:\/\/\S+/);
-    const image = urlMatch ? urlMatch[0] : content;
 
     res.json({ image });
   } catch (err) {
