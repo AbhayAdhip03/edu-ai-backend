@@ -38,7 +38,7 @@ const MODELS = {
    OpenRouter CHAT Call
 ================================ */
 
-async function callOpenRouterChat(apiKey, prompt, width, height, steps) {
+async function callOpenRouterChat(apiKey, model, messages) {
   const res = await axios.post(
     "https://openrouter.ai/api/v1/chat/completions",
     {
@@ -63,7 +63,8 @@ async function callOpenRouterChat(apiKey, prompt, width, height, steps) {
    IMAGE VIA CHAT (CORRECT WAY)
 ================================ */
 
-async function callOpenRouterImageViaChat(apiKey, prompt) {
+// FIX 1: Added width, height, steps to arguments
+async function callOpenRouterImageViaChat(apiKey, prompt, width, height, steps) {
   const res = await axios.post(
     "https://openrouter.ai/api/v1/chat/completions",
     {
@@ -71,16 +72,17 @@ async function callOpenRouterImageViaChat(apiKey, prompt) {
       messages: [
         {
           role: "user",
-          content: `Generate an image for: ${prompt}. Reply ONLY with a direct image URL.`,
+          content: prompt, // Just the prompt
         },
       ],
       modalities: ["image"], 
-      // CRITICAL FIX: Pass configuration here
+      
       image_config: {
         width: width,
         height: height,
         steps: steps
-    }},
+      }
+    }, // FIX 2: Added missing closing brace for body object
     {
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -162,7 +164,6 @@ router.post("/image", verifyFirebaseToken, async (req, res) => {
     const height = req.body.height || 512;
     const steps = req.body.steps || 30;
 
-
     if (!schoolId) {
       return res.status(400).json({ error: "School ID missing" });
     }
@@ -184,6 +185,7 @@ router.post("/image", verifyFirebaseToken, async (req, res) => {
       return res.status(400).json({ error: "Image key missing" });
     }
 
+    // FIX 3: Call with ALL arguments
     const result = await callOpenRouterImageViaChat(apiKey, prompt, width, height, steps);
 
     console.log("🖼️ IMAGE CHAT RAW:", JSON.stringify(result));
