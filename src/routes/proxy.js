@@ -74,7 +74,13 @@ async function callOpenRouterImageViaChat(apiKey, prompt) {
           content: `Generate an image for: ${prompt}. Reply ONLY with a direct image URL.`,
         },
       ],
-    },
+      modalities: ["image"], 
+      // CRITICAL FIX: Pass configuration here
+      image_config: {
+        width: width,
+        height: height,
+        steps: steps
+    }},
     {
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -151,6 +157,12 @@ router.post("/image", verifyFirebaseToken, async (req, res) => {
     const schoolId = req.user.schoolId || req.body.schoolId;
     const prompt = req.body.prompt;
 
+    // Capture parameters from the app request
+    const width = req.body.width || 512;
+    const height = req.body.height || 512;
+    const steps = req.body.steps || 30;
+
+
     if (!schoolId) {
       return res.status(400).json({ error: "School ID missing" });
     }
@@ -172,7 +184,7 @@ router.post("/image", verifyFirebaseToken, async (req, res) => {
       return res.status(400).json({ error: "Image key missing" });
     }
 
-    const result = await callOpenRouterImageViaChat(apiKey, prompt);
+    const result = await callOpenRouterImageViaChat(apiKey, prompt, width, height, steps);
 
     console.log("🖼️ IMAGE CHAT RAW:", JSON.stringify(result));
 
