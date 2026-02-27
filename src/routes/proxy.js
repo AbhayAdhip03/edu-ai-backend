@@ -128,6 +128,16 @@ router.post("/chat", verifyFirebaseToken, async (req, res) => {
       return res.status(400).json({ error: `${botType} key or fallback Chat key missing` });
     }
 
+    // Trim whitespace and safely handle null to prevent OpenRouter errors or internal 500 crashes
+    apiKey = typeof apiKey === 'string' ? apiKey.trim() : String(apiKey);
+
+    // --- DEBUG LOGGING ---
+    const maskedKey = apiKey.substring(0, 12) + "..." + apiKey.slice(-4);
+    console.log(`[PROXY /chat] botType: ${botType} | schoolId: ${schoolId}`);
+    console.log(`[PROXY /chat] has emmiLite key? ${!!keys.emmiLite} | has chat key? ${!!keys.chat}`);
+    console.log(`[PROXY /chat] using masked apiKey: ${maskedKey}`);
+    // ----------------------
+
     const model = MODELS[botType] || MODELS.neural;
 
     const messages = [
