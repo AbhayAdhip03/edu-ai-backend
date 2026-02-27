@@ -123,20 +123,24 @@ router.post("/chat", verifyFirebaseToken, async (req, res) => {
     else if (botType === "helpbot") apiKey = keys.helpbot || keys.chat;
     else if (botType === "blockly") apiKey = keys.blockly || keys.chat;
     else if (botType === "translate") apiKey = keys.translate || keys.chat;
-
-    if (!apiKey) {
-      return res.status(400).json({ error: `${botType} key or fallback Chat key missing` });
-    }
-
-    // Trim whitespace and safely handle null to prevent OpenRouter errors or internal 500 crashes
-    apiKey = typeof apiKey === 'string' ? apiKey.trim() : String(apiKey);
+    else if (botType === "pyvibe") apiKey = keys.pyvibe || keys.chat;
 
     // --- DEBUG LOGGING ---
-    const maskedKey = apiKey.substring(0, 12) + "..." + apiKey.slice(-4);
+    const maskedKey = typeof apiKey === 'string' && apiKey.length > 8
+      ? apiKey.substring(0, 8) + "..." + apiKey.slice(-4)
+      : "EMPTY OR INVALID";
     console.log(`[PROXY /chat] botType: ${botType} | schoolId: ${schoolId}`);
-    console.log(`[PROXY /chat] has emmiLite key? ${!!keys.emmiLite} | has chat key? ${!!keys.chat}`);
+    console.log(`[PROXY /chat] has emmiLite? ${!!keys.emmiLite} | has chat? ${!!keys.chat}`);
     console.log(`[PROXY /chat] using masked apiKey: ${maskedKey}`);
     // ----------------------
+
+    if (!apiKey || typeof apiKey !== 'string' || apiKey.trim() === '') {
+      return res.status(401).json({
+        error: `Proxy Error: No valid API key found for botType '${botType}' in school '${schoolId}'`
+      });
+    }
+
+    apiKey = apiKey.trim();
 
     const model = MODELS[botType] || MODELS.neural;
 
