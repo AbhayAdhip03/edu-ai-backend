@@ -74,8 +74,8 @@ async function callOpenRouterImageViaChat(apiKey, prompt, width, height, steps) 
           content: prompt, // Just the prompt
         },
       ],
-      modalities: ["image"], 
-      
+      modalities: ["image"],
+
       image_config: {
         width: width,
         height: height,
@@ -116,10 +116,16 @@ router.post("/chat", verifyFirebaseToken, async (req, res) => {
     }
 
     const keys = JSON.parse(decrypt(record.keysEncrypted));
-    const apiKey = keys.chat;
+
+    // Select the appropriate API key based on the bot type requested
+    let apiKey = keys.chat; // Default to main chat key
+    if (botType === "emmiLite") apiKey = keys.emmiLite || keys.chat;
+    else if (botType === "helpbot") apiKey = keys.helpbot || keys.chat;
+    else if (botType === "blockly") apiKey = keys.blockly || keys.chat;
+    else if (botType === "translate") apiKey = keys.translate || keys.chat;
 
     if (!apiKey) {
-      return res.status(400).json({ error: "Chat key missing" });
+      return res.status(400).json({ error: `${botType} key or fallback Chat key missing` });
     }
 
     const model = MODELS[botType] || MODELS.neural;
@@ -157,7 +163,7 @@ router.post("/image", verifyFirebaseToken, async (req, res) => {
   try {
     const schoolId = req.user.schoolId || req.body.schoolId;
     const prompt = req.body.prompt;
-    
+
     // Capture parameters from the app request
     const width = req.body.width || 512;
     const height = req.body.height || 512;
@@ -196,16 +202,16 @@ router.post("/image", verifyFirebaseToken, async (req, res) => {
     if (choice && choice.message) {
       // 1. Check for standard content (URL string)
       if (choice.message.content) {
-          const urlMatch = choice.message.content.match(/https?:\/\/\S+/);
-          image = urlMatch ? urlMatch[0] : choice.message.content;
-      } 
-      
+        const urlMatch = choice.message.content.match(/https?:\/\/\S+/);
+        image = urlMatch ? urlMatch[0] : choice.message.content;
+      }
+
       // 2. Check for OpenRouter native image array (base64 or object)
       // This is often where "Sourceful" models return the image!
       if (!image && choice.message.images && choice.message.images.length > 0) {
-          // It could be a URL inside, or a direct base64 string
-          const imgObj = choice.message.images[0];
-          image = typeof imgObj === 'string' ? imgObj : (imgObj.url || imgObj.image_url?.url);
+        // It could be a URL inside, or a direct base64 string
+        const imgObj = choice.message.images[0];
+        image = typeof imgObj === 'string' ? imgObj : (imgObj.url || imgObj.image_url?.url);
       }
     }
 
