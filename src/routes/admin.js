@@ -3,6 +3,7 @@ const router = express.Router();
 
 const { verifyAdminKey } = require("../auth");
 const { encrypt } = require("../crypto");
+const admin = require("firebase-admin");
 
 const mongoose = require("mongoose");
 
@@ -76,6 +77,38 @@ router.post("/school-disable", verifyAdminKey, async (req, res) => {
   } catch (err) {
     console.error("ADMIN DISABLE ERROR:", err);
     res.status(500).json({ error: "Failed to disable school" });
+  }
+});
+
+// ==========================================
+// 🔄 SYNC SCHOOL DATA TO QUBIQ FIRESTORE
+// ==========================================
+
+router.post("/sync-school", verifyAdminKey, async (req, res) => {
+  try {
+    const { schoolId, schoolName } = req.body;
+
+    if (!schoolId || !schoolName) {
+      return res.status(400).json({ error: "schoolId and schoolName required" });
+    }
+
+    // Write to the 'schools' collection in the Qubiq Firebase project
+    // This uses the FIREBASE_SERVICE_ACCOUNT configured in index.js/auth.js
+    await admin.firestore().collection("schools").doc(schoolId).set({
+      schoolId,
+      name: schoolName,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+
+    console.log(`Synced school: ${schoolName} (${schoolId})`);
+
+    res.json({
+      success: true,
+      message: "School synced to Qubiq successfully"
+    });
+  } catch (err) {
+    console.error("ADMIN SYNC ERROR:", err);
+    res.status(500).json({ error: "Failed to sync school data" });
   }
 });
 

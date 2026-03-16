@@ -6,6 +6,7 @@ const cors = require("cors");
 const connectDB = require("./db");
 const adminRoutes = require("./routes/admin");
 const proxyRoutes = require("./routes/proxy");
+const courseRoutes = require("./routes/course");
 
 const app = express();
 
@@ -19,6 +20,7 @@ app.get("/", (req, res) => {
 // routes
 app.use("/admin", adminRoutes);
 app.use("/proxy", proxyRoutes);
+app.use("/api/courses", courseRoutes);
 
 const PORT = process.env.PORT || 3000;
 
