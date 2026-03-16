@@ -123,4 +123,92 @@ router.post("/sync-school", verifyAdminKey, async (req, res) => {
   }
 });
 
+// ==========================================
+// 🔄 SYNC COURSE DATA TO QUBIQ FIRESTORE
+// ==========================================
+
+router.post("/sync-course", verifyAdminKey, async (req, res) => {
+  try {
+    const {
+      courseId,
+      name,
+      description,
+      category,
+      price,
+      duration,
+      learningPoints,
+      curriculum, // Optional curriculum list
+      imageUrl,
+      level,
+      language,
+    } = req.body;
+
+    if (!courseId || !name) {
+      return res.status(400).json({ error: "courseId and name required" });
+    }
+
+    // Map fields to what the Qubiq Student Dashboard expects
+    const courseData = {
+      courseId,
+      title: name, // Desktop project expects 'title'
+      description,
+      category,
+      price,
+      duration,
+      whatYouWillLearn: learningPoints || [], // Matches CourseOverviewScreen
+      whatsIncluded: [], // Can be expanded later
+      instructor: "Emmi Bot", // Default instructor
+      thumbnailUrl: imageUrl || "",
+      level: level || "Beginner",
+      language: language || "English",
+      status: "published", // REQUIRED for student dashboard filter
+      totalModules: curriculum ? curriculum.length : 0,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+
+    // Write to the 'courses' collection
+    await admin.firestore().collection("courses").doc(courseId).set(courseData, { merge: true });
+
+    // Handle Curriculum (Modules sub-collection)
+    if (curriculum && Array.isArray(curriculum)) {
+      const modulesRef = admin.firestore().collection("courses").doc(courseId).collection("modules");
+      
+      // Batch update modules
+      const batch = admin.firestore().batch();
+      curriculum.forEach((item, index) => {
+        const modId = `mod_${index + 1}`;
+        const modRef = modulesRef.doc(modId);
+        batch.set(modRef, {
+          title: item.title,
+          type: item.type || "Video",
+          duration: item.duration || "",
+          videoUrl: item.videoUrl || "",
+          sequence: index + 1,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        }, { merge: true });
+      });
+      await batch.commit();
+    }
+
+    // Ensure createdAt exists
+    const docRef = admin.firestore().collection("courses").doc(courseId);
+    const doc = await docRef.get();
+    if (!doc.exists || !doc.data().createdAt) {
+      await docRef.update({
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+
+    console.log(`Synced course: ${name} (${courseId})`);
+
+    res.json({
+      success: true,
+      message: "Course synced to Qubiq successfully with curriculum",
+    });
+  } catch (err) {
+    console.error("ADMIN COURSE SYNC ERROR:", err);
+    res.status(500).json({ error: "Failed to sync course data" });
+  }
+});
+
 module.exports = router;
