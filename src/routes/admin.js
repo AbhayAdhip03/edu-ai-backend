@@ -97,8 +97,19 @@ router.post("/sync-school", verifyAdminKey, async (req, res) => {
     await admin.firestore().collection("schools").doc(schoolId).set({
       schoolId,
       name: schoolName,
+      paymentStatus: "paid",
+      status: "active",
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     }, { merge: true });
+
+    // Ensure createdAt exists if it's a new document
+    const docRef = admin.firestore().collection("schools").doc(schoolId);
+    const doc = await docRef.get();
+    if (!doc.exists || !doc.data().createdAt) {
+      await docRef.update({
+        createdAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+    }
 
     console.log(`Synced school: ${schoolName} (${schoolId})`);
 
