@@ -22,7 +22,7 @@ app.get("/", (req, res) => {
 app.use("/admin", adminRoutes);
 app.use("/proxy", proxyRoutes);
 app.use("/api/courses", courseRoutes);
-app.use("/api/support", supportRoutes);
+app.use("/support", supportRoutes);
 
 const PORT = process.env.PORT || 3000;
 
