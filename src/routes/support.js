@@ -37,6 +37,28 @@ router.post("/ticket", async (req, res) => {
 });
 
 /* ==========================================
+   🎫 SUPPORT TICKETS — GET ALL (ADMIN)
+   ========================================== */
+
+router.get("/tickets", verifyAdminKey, async (req, res) => {
+  try {
+    const snapshot = await admin.firestore().collection("support_tickets")
+      .orderBy("createdAt", "desc")
+      .get();
+
+    const tickets = [];
+    snapshot.forEach((doc) => {
+      tickets.push({ id: doc.id, ...doc.data() });
+    });
+
+    res.json(tickets);
+  } catch (err) {
+    console.error("SUPPORT TICKETS FETCH ERROR:", err);
+    res.status(500).json({ error: "Failed to fetch support tickets" });
+  }
+});
+
+/* ==========================================
    🎫 SUPPORT TICKETS — GET BY USER EMAIL
    ========================================== */
 
