@@ -7,6 +7,7 @@ const connectDB = require("./db");
 const adminRoutes = require("./routes/admin");
 const proxyRoutes = require("./routes/proxy");
 const courseRoutes = require("./routes/course");
+const supportRoutes = require("./routes/support");
 
 const app = express();
 
@@ -21,6 +22,7 @@ app.get("/", (req, res) => {
 app.use("/admin", adminRoutes);
 app.use("/proxy", proxyRoutes);
 app.use("/api/courses", courseRoutes);
+app.use("/api/support", supportRoutes);
 
 const PORT = process.env.PORT || 3000;
 
