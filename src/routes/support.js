@@ -37,12 +37,14 @@ router.post("/ticket", async (req, res) => {
 });
 
 /* ==========================================
-   🎫 SUPPORT TICKETS — GET ALL (ADMIN)
+   🎫 SUPPORT TICKETS — GET BY USER EMAIL
    ========================================== */
 
-router.get("/tickets", verifyAdminKey, async (req, res) => {
+router.get("/tickets/user/:email", async (req, res) => {
   try {
+    const { email } = req.params;
     const snapshot = await admin.firestore().collection("support_tickets")
+      .where("email", "==", email)
       .orderBy("createdAt", "desc")
       .get();
 
@@ -53,28 +55,32 @@ router.get("/tickets", verifyAdminKey, async (req, res) => {
 
     res.json(tickets);
   } catch (err) {
-    console.error("SUPPORT TICKETS FETCH ERROR:", err);
-    res.status(500).json({ error: "Failed to fetch support tickets" });
+    console.error("SUPPORT TICKETS USER FETCH ERROR:", err);
+    res.status(500).json({ error: "Failed to fetch user support tickets" });
   }
 });
 
 /* ==========================================
-   🎫 SUPPORT TICKETS — UPDATE STATUS (ADMIN)
+   🎫 SUPPORT TICKETS — UPDATE STATUS & RESPONSE (ADMIN)
    ========================================== */
 
 router.patch("/tickets/:id", verifyAdminKey, async (req, res) => {
   try {
     const { id } = req.params;
-    const { status } = req.body;
+    const { status, adminResponse } = req.body;
 
-    if (!status) {
-      return res.status(400).json({ error: "Status is required" });
+    const updateData = {
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+
+    if (status) updateData.status = status;
+    if (adminResponse !== undefined) {
+      updateData.adminResponse = adminResponse;
+      updateData.respondedAt = admin.firestore.FieldValue.serverTimestamp();
+      updateData.status = "resolved"; // Auto-resolve when responding
     }
 
-    await admin.firestore().collection("support_tickets").doc(id).update({
-      status,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
+    await admin.firestore().collection("support_tickets").doc(id).update(updateData);
 
     res.json({ success: true });
   } catch (err) {
