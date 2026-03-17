@@ -67,7 +67,6 @@ router.get("/tickets/user/:email", async (req, res) => {
     const { email } = req.params;
     const snapshot = await admin.firestore().collection("support_tickets")
       .where("email", "==", email)
-      .orderBy("createdAt", "desc")
       .get();
 
     const tickets = [];
