@@ -124,6 +124,43 @@ router.post("/sync-school", verifyAdminKey, async (req, res) => {
 });
 
 // ==========================================
+// 🔍 GET ADMIN DATA FOR A SCHOOL
+// ==========================================
+router.get("/get-admin/:schoolId", verifyAdminKey, async (req, res) => {
+  try {
+    const { schoolId } = req.params;
+
+    if (!schoolId) {
+      return res.status(400).json({ error: "schoolId required" });
+    }
+
+    const snapshot = await admin.firestore()
+      .collection("users")
+      .where("schoolId", "==", schoolId)
+      .where("role", "==", "admin")
+      .limit(1)
+      .get();
+
+    if (snapshot.empty) {
+      return res.status(404).json({ error: "No admin found for this school" });
+    }
+
+    const adminDoc = snapshot.docs[0];
+    const adminData = adminDoc.data();
+
+    res.json({
+      success: true,
+      adminId: adminDoc.id,
+      name: adminData.name || "Admin",
+      email: adminData.email
+    });
+  } catch (err) {
+    console.error("GET ADMIN ERROR:", err);
+    res.status(500).json({ error: "Failed to fetch admin data" });
+  }
+});
+
+// ==========================================
 // 🔄 SYNC COURSE DATA TO QUBIQ FIRESTORE
 // ==========================================
 
