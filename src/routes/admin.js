@@ -161,6 +161,59 @@ router.get("/get-admin/:schoolId", verifyAdminKey, async (req, res) => {
 });
 
 // ==========================================
+// 🔍 DISCOVERY & SYNC (Ultimate Fix)
+// ==========================================
+router.post("/discovery-sync", verifyAdminKey, async (req, res) => {
+  try {
+    const { schoolCode, visitDocId } = req.body;
+
+    if (!schoolCode || !visitDocId) {
+      return res.status(400).json({ error: "schoolCode and visitDocId required" });
+    }
+
+    console.log(`🔍 Discovery Proxy: Checking Qubiq for Admin of school ${schoolCode}...`);
+
+    // 1. Search for Admin in the Qubiq Project
+    const userSnapshot = await admin.firestore()
+      .collection("users")
+      .where("schoolId", "==", schoolCode)
+      .where("role", "==", "admin")
+      .limit(1)
+      .get();
+
+    if (userSnapshot.empty) {
+      return res.status(404).json({ error: "No admin found for this school" });
+    }
+
+    const adminDoc = userSnapshot.docs[0];
+    const adminData = adminDoc.data();
+    const adminId = adminDoc.id;
+    const adminName = adminData.name || "Admin";
+
+    console.log(`✅ Discovery Proxy: Found Admin ${adminName} (${adminId}). Updating Management DB...`);
+
+    // 2. Update the 'school_visits' document in the Management Project (Default instance)
+    await admin.firestore()
+      .collection("school_visits")
+      .doc(visitDocId)
+      .set({
+        adminId: adminId,
+        adminName: adminName,
+      }, { merge: true });
+
+    res.json({
+      success: true,
+      adminId,
+      adminName,
+      message: "Admin found and synced to Management successfully"
+    });
+  } catch (err) {
+    console.error("DISCOVERY SYNC ERROR:", err);
+    res.status(500).json({ error: "Failed to perform discovery sync" });
+  }
+});
+
+// ==========================================
 // 🔄 SYNC COURSE DATA TO QUBIQ FIRESTORE
 // ==========================================
 
