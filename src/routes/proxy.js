@@ -14,6 +14,7 @@ const axios = require("axios");
 const SchoolKeySchema = new mongoose.Schema({
   schoolId: { type: String, unique: true },
   keysEncrypted: String,
+  bucketName: String,
   active: Boolean,
   updatedAt: Date,
 });
@@ -95,6 +96,35 @@ async function callOpenRouterImageViaChat(apiKey, prompt, width, height, steps) 
 
   return res.data;
 }
+
+/* ================================
+   CONFIG ENDPOINT
+================================ */
+
+router.get("/config", verifyFirebaseToken, async (req, res) => {
+  try {
+    const schoolId = req.user.schoolId;
+
+    if (!schoolId) {
+      return res.status(400).json({ error: "School ID missing from token" });
+    }
+
+    const record = await SchoolKey.findOne({ schoolId });
+
+    if (!record || !record.active) {
+      return res.status(403).json({ error: "School configuration not found or disabled" });
+    }
+
+    res.json({
+      success: true,
+      bucketName: record.bucketName || "",
+      schoolId: record.schoolId,
+    });
+  } catch (err) {
+    console.error("GET CONFIG ERROR:", err);
+    res.status(500).json({ error: "Failed to fetch config" });
+  }
+});
 
 /* ================================
    CHAT ENDPOINT

@@ -10,6 +10,7 @@ const mongoose = require("mongoose");
 const SchoolKeySchema = new mongoose.Schema({
   schoolId: { type: String, unique: true },
   keysEncrypted: String,
+  bucketName: String,
   active: { type: Boolean, default: true },
   updatedAt: Date,
 });
@@ -37,6 +38,7 @@ router.post("/school-keys", verifyAdminKey, async (req, res) => {
       {
         schoolId,
         keysEncrypted: encryptedBlob,
+        bucketName: keys.bucketName,
         active: true,
         updatedAt: new Date(),
       },
