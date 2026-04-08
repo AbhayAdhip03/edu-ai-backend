@@ -25,20 +25,21 @@ const SchoolKey =
 
 router.post("/school-keys", verifyAdminKey, async (req, res) => {
   try {
-    const { schoolId, keys } = req.body;
+    const { schoolId, keys, bucketName } = req.body;
 
     if (!schoolId || !keys) {
       return res.status(400).json({ error: "Missing fields" });
     }
 
     const encryptedBlob = encrypt(JSON.stringify(keys));
+    const extractedBucketName = bucketName || keys.bucketName;
 
     const doc = await SchoolKey.findOneAndUpdate(
       { schoolId },
       {
         schoolId,
         keysEncrypted: encryptedBlob,
-        bucketName: keys.bucketName,
+        bucketName: extractedBucketName,
         active: true,
         updatedAt: new Date(),
       },
