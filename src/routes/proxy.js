@@ -103,7 +103,7 @@ async function callOpenRouterImageViaChat(apiKey, prompt, width, height, steps) 
 
 router.get("/config", verifyFirebaseToken, async (req, res) => {
   try {
-    const schoolId = req.user.schoolId;
+    const schoolId = req.user.schoolId || req.query.schoolId;
 
     if (!schoolId) {
       return res.status(400).json({ error: "School ID missing from token" });
