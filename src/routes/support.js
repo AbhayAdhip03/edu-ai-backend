@@ -89,14 +89,14 @@ router.get("/tickets/user/:email", async (req, res) => {
    ========================================== */
 
 router.patch("/tickets/:id", async (req, res, next) => {
-  const { status, adminResponse, isHardwareComplaint, trackingLink, reply } = req.body;
+  const { status, adminResponse, isHardwareComplaint, trackingLink, manualTrackingStatus, reply } = req.body;
   
   // Define what constitutes an admin-only action
   const isAdminAction = 
     status !== undefined || 
     adminResponse !== undefined || 
-    isHardwareComplaint !== undefined || 
     trackingLink !== undefined || 
+    manualTrackingStatus !== undefined ||
     (reply && reply.sender === "admin");
 
   if (isAdminAction) {
@@ -108,7 +108,7 @@ router.patch("/tickets/:id", async (req, res, next) => {
 }, async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, adminResponse, isHardwareComplaint, trackingLink, reply } = req.body;
+    const { status, adminResponse, isHardwareComplaint, trackingLink, manualTrackingStatus, reply } = req.body;
 
     const updateData = {
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -117,6 +117,7 @@ router.patch("/tickets/:id", async (req, res, next) => {
     if (status) updateData.status = status;
     if (isHardwareComplaint !== undefined) updateData.isHardwareComplaint = isHardwareComplaint;
     if (trackingLink !== undefined) updateData.trackingLink = trackingLink;
+    if (manualTrackingStatus !== undefined) updateData.manualTrackingStatus = manualTrackingStatus;
     
     if (reply) {
       const replyData = typeof reply === 'string' 
@@ -145,6 +146,49 @@ router.patch("/tickets/:id", async (req, res, next) => {
   } catch (err) {
     console.error("SUPPORT TICKET UPDATE ERROR:", err);
     res.status(500).json({ error: "Failed to update ticket status" });
+  }
+});
+
+/* ==========================================
+   🚚 DELIVERY TRACKING — LIVE STATUS
+   ========================================== */
+
+router.get("/track/:awb", async (req, res) => {
+  try {
+    const { awb } = req.params;
+    const apiKey = process.env.DELHIVERY_API_KEY;
+
+    if (!apiKey) {
+      return res.status(500).json({ error: "Delhivery API Key not configured on server" });
+    }
+
+    const axios = require("axios");
+    const response = await axios.get(`https://track.delhivery.com/api/v1/packages/json/?waybill=${awb}`, {
+      headers: {
+        'Authorization': `Token ${apiKey}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    // Delhivery returns an object with a 'ShipmentData' array
+    const trackingData = response.data;
+    
+    if (trackingData && trackingData.ShipmentData && trackingData.ShipmentData.length > 0) {
+      const shipment = trackingData.ShipmentData[0].Shipment;
+      res.json({
+        success: true,
+        status: shipment.Status.Status || "Unknown",
+        statusDateTime: shipment.Status.StatusDateTime || null,
+        location: shipment.Status.StatusLocation || "Unknown",
+        instructions: shipment.Status.Instructions || "",
+        expectedDeliveryDate: shipment.ExpectedDeliveryDate || null
+      });
+    } else {
+      res.status(404).json({ error: "Tracking information not found for this AWB" });
+    }
+  } catch (err) {
+    console.error("DELHIVERY TRACKING ERROR:", err.message);
+    res.status(500).json({ error: "Failed to fetch live tracking status" });
   }
 });
 
