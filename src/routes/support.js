@@ -9,7 +9,7 @@ const { verifyAdminKey } = require("../auth");
 
 router.post("/ticket", async (req, res) => {
   try {
-    const { email, message, chatHistory } = req.body;
+    const { email, message, chatHistory, isHardwareComplaint, contactNumber } = req.body;
 
     if (!email || !message) {
       return res.status(400).json({ error: "Email and message are required" });
@@ -18,7 +18,10 @@ router.post("/ticket", async (req, res) => {
     const ticketData = {
       email,
       message,
+      contactNumber: contactNumber || "",
       chatHistory: chatHistory || "",
+      isHardwareComplaint: isHardwareComplaint === true,
+      replies: [], // Initialize empty replies array
       status: "open",
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -85,16 +88,51 @@ router.get("/tickets/user/:email", async (req, res) => {
    🎫 SUPPORT TICKETS — UPDATE STATUS & RESPONSE (ADMIN)
    ========================================== */
 
-router.patch("/tickets/:id", verifyAdminKey, async (req, res) => {
+router.patch("/tickets/:id", async (req, res, next) => {
+  const { status, adminResponse, isHardwareComplaint, trackingLink, reply } = req.body;
+  
+  // Define what constitutes an admin-only action
+  const isAdminAction = 
+    status !== undefined || 
+    adminResponse !== undefined || 
+    isHardwareComplaint !== undefined || 
+    trackingLink !== undefined || 
+    (reply && reply.sender === "admin");
+
+  if (isAdminAction) {
+    return verifyAdminKey(req, res, next);
+  }
+  
+  // If it's just a user reply, we allow it through
+  next();
+}, async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, adminResponse } = req.body;
+    const { status, adminResponse, isHardwareComplaint, trackingLink, reply } = req.body;
 
     const updateData = {
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     };
 
     if (status) updateData.status = status;
+    if (isHardwareComplaint !== undefined) updateData.isHardwareComplaint = isHardwareComplaint;
+    if (trackingLink !== undefined) updateData.trackingLink = trackingLink;
+    
+    if (reply) {
+      const replyData = typeof reply === 'string' 
+        ? { message: reply, sender: 'admin', timestamp: new Date().toISOString() }
+        : { ...reply, timestamp: new Date().toISOString() };
+      
+      updateData.replies = admin.firestore.FieldValue.arrayUnion(replyData);
+      
+      // Update status based on sender
+      if (replyData.sender === 'admin') {
+        updateData.status = "responded";
+      } else {
+        updateData.status = "open";
+      }
+    }
+
     if (adminResponse !== undefined) {
       updateData.adminResponse = adminResponse;
       updateData.respondedAt = admin.firestore.FieldValue.serverTimestamp();
