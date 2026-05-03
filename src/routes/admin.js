@@ -304,4 +304,61 @@ router.post("/sync-course", verifyAdminKey, async (req, res) => {
   }
 });
 
+// ==========================================
+// 📊 GET AGGREGATE STATS (ADMIN)
+// ==========================================
+
+router.get("/stats", verifyAdminKey, async (req, res) => {
+  try {
+    const collections = ["users", "schools", "assignments", "projects", "submissions"];
+    const stats = {};
+
+    for (const col of collections) {
+      const snapshot = await admin.firestore().collection(col).count().get();
+      stats[col] = snapshot.data().count;
+    }
+
+    res.json({
+      success: true,
+      stats
+    });
+  } catch (err) {
+    console.error("STATS ERROR:", err);
+    res.status(500).json({ error: "Failed to fetch stats" });
+  }
+});
+
+router.get("/stats/school/:schoolId", verifyAdminKey, async (req, res) => {
+  try {
+    const { schoolId } = req.params;
+    const stats = {};
+
+    // For users, assignments, and projects, we filter by schoolId
+    const schoolScopedCollections = ["users", "assignments", "projects"];
+    
+    for (const col of schoolScopedCollections) {
+      const snapshot = await admin.firestore().collection(col)
+        .where("schoolId", "==", schoolId)
+        .count().get();
+      stats[col] = snapshot.data().count;
+    }
+
+    // For submissions, we might need to filter differently if they don't have schoolId directly
+    // but usually they do or can be inferred. Let's assume they have it for now.
+    const submissionSnapshot = await admin.firestore().collection("submissions")
+      .where("schoolId", "==", schoolId)
+      .count().get();
+    stats.submissions = submissionSnapshot.data().count;
+
+    res.json({
+      success: true,
+      schoolId,
+      stats
+    });
+  } catch (err) {
+    console.error("SCHOOL STATS ERROR:", err);
+    res.status(500).json({ error: "Failed to fetch school stats" });
+  }
+});
+
 module.exports = router;
