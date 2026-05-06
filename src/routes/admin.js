@@ -318,6 +318,12 @@ router.get("/stats", verifyAdminKey, async (req, res) => {
       stats[col] = snapshot.data().count;
     }
 
+    const teacherSnapshot = await admin.firestore().collection("users").where("role", "==", "teacher").count().get();
+    stats.teachers = teacherSnapshot.data().count;
+
+    const studentSnapshot = await admin.firestore().collection("users").where("role", "==", "student").count().get();
+    stats.students = studentSnapshot.data().count;
+
     res.json({
       success: true,
       stats
@@ -349,6 +355,16 @@ router.get("/stats/school/:schoolId", verifyAdminKey, async (req, res) => {
       .where("schoolId", "==", schoolId)
       .count().get();
     stats.submissions = submissionSnapshot.data().count;
+
+    const teacherSnapshot = await admin.firestore().collection("users")
+      .where("schoolId", "==", schoolId)
+      .where("role", "==", "teacher").count().get();
+    stats.teachers = teacherSnapshot.data().count;
+
+    const studentSnapshot = await admin.firestore().collection("users")
+      .where("schoolId", "==", schoolId)
+      .where("role", "==", "student").count().get();
+    stats.students = studentSnapshot.data().count;
 
     res.json({
       success: true,
