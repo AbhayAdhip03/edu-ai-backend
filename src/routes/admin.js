@@ -95,17 +95,24 @@ router.post("/sync-school", verifyAdminKey, async (req, res) => {
       return res.status(400).json({ error: "schoolId and schoolName required" });
     }
 
-    // Single write — no read needed. merge:true keeps existing createdAt intact.
-    // We include createdAt here; for existing docs it will be overwritten with
-    // a fresh timestamp, which is acceptable and avoids a costly read.
+    // Write to the 'schools' collection in the Qubiq Firebase project
+    // This uses the FIREBASE_SERVICE_ACCOUNT configured in index.js/auth.js
     await admin.firestore().collection("schools").doc(schoolId).set({
       schoolId,
       name: schoolName,
       paymentStatus: "paid",
       status: "active",
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     }, { merge: true });
+
+    // Ensure createdAt exists if it's a new document
+    const docRef = admin.firestore().collection("schools").doc(schoolId);
+    const doc = await docRef.get();
+    if (!doc.exists || !doc.data().createdAt) {
+      await docRef.update({
+        createdAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+    }
 
     console.log(`Synced school: ${schoolName} (${schoolId})`);
 
@@ -294,6 +301,65 @@ router.post("/sync-course", verifyAdminKey, async (req, res) => {
   } catch (err) {
     console.error("ADMIN COURSE SYNC ERROR:", err);
     res.status(500).json({ error: "Failed to sync course data" });
+  }
+});
+
+// ==========================================
+// 🔄 SYNC PROJECT DATA TO QUBIQ FIRESTORE
+// ==========================================
+
+router.post("/sync-project", verifyAdminKey, async (req, res) => {
+  try {
+    const {
+      projectId,
+      title,
+      description,
+      difficulty,
+      tags,
+      imageUrl,
+      githubUrl,
+      liveUrl,
+      customSections,
+    } = req.body;
+
+    if (!projectId || !title) {
+      return res.status(400).json({ error: "projectId and title required" });
+    }
+
+    const projectData = {
+      projectId,
+      title,
+      description,
+      difficulty: difficulty || "Beginner",
+      tags: tags || [],
+      thumbnailUrl: imageUrl || "",
+      githubUrl: githubUrl || "",
+      liveUrl: liveUrl || "",
+      status: "published",
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+
+    // Write to the 'projects' collection
+    await admin.firestore().collection("projects").doc(projectId).set(projectData, { merge: true });
+
+    // Ensure createdAt exists
+    const docRef = admin.firestore().collection("projects").doc(projectId);
+    const doc = await docRef.get();
+    if (!doc.exists || !doc.data().createdAt) {
+      await docRef.update({
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+
+    console.log(`Synced project: ${title} (${projectId})`);
+
+    res.json({
+      success: true,
+      message: "Project synced to Qubiq successfully",
+    });
+  } catch (err) {
+    console.error("ADMIN PROJECT SYNC ERROR:", err);
+    res.status(500).json({ error: "Failed to sync project data" });
   }
 });
 
