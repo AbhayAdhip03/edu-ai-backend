@@ -8,6 +8,7 @@ const CourseSchema = new mongoose.Schema({
     category: String,
     duration: String,
     price: Number,
+    offerPrice: Number,
     imageUrl: String,
     level: { type: String, default: "Beginner" },
     language: { type: String, default: "English" },

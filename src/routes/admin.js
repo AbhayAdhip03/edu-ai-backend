@@ -228,6 +228,7 @@ router.post("/sync-course", verifyAdminKey, async (req, res) => {
       description,
       category,
       price,
+      offerPrice,
       duration,
       learningPoints,
       curriculum, // Optional curriculum list
@@ -247,6 +248,7 @@ router.post("/sync-course", verifyAdminKey, async (req, res) => {
       description,
       category,
       price,
+      offerPrice: offerPrice || null,
       duration,
       whatYouWillLearn: learningPoints || [], // Matches CourseOverviewScreen
       whatsIncluded: [], // Can be expanded later
