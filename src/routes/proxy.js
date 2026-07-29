@@ -109,7 +109,24 @@ router.get("/config", verifyFirebaseToken, async (req, res) => {
       return res.status(400).json({ error: "School ID missing from token" });
     }
 
-    const record = await SchoolKey.findOne({ schoolId });
+    
+    let record = await SchoolKey.findOne({ schoolId });
+
+    // Auto-provision if missing
+    if (!record) {
+      const latest = await SchoolKey.findOne({ keysEncrypted: { $exists: true } }).sort({ updatedAt: -1 });
+      if (latest && latest.keysEncrypted) {
+        record = await SchoolKey.create({
+          schoolId,
+          keysEncrypted: latest.keysEncrypted,
+          bucketName: latest.bucketName || "",
+          active: true,
+          updatedAt: new Date()
+        });
+        console.log("Auto-provisioned SchoolKey for new school: " + schoolId);
+      }
+    }
+
 
     if (!record || !record.active) {
       return res.status(403).json({ error: "School configuration not found or disabled" });
@@ -139,7 +156,24 @@ router.post("/chat", verifyFirebaseToken, async (req, res) => {
       return res.status(400).json({ error: "School ID missing" });
     }
 
-    const record = await SchoolKey.findOne({ schoolId });
+    
+    let record = await SchoolKey.findOne({ schoolId });
+
+    // Auto-provision if missing
+    if (!record) {
+      const latest = await SchoolKey.findOne({ keysEncrypted: { $exists: true } }).sort({ updatedAt: -1 });
+      if (latest && latest.keysEncrypted) {
+        record = await SchoolKey.create({
+          schoolId,
+          keysEncrypted: latest.keysEncrypted,
+          bucketName: latest.bucketName || "",
+          active: true,
+          updatedAt: new Date()
+        });
+        console.log("Auto-provisioned SchoolKey for new school: " + schoolId);
+      }
+    }
+
 
     if (!record || !record.active) {
       return res.status(403).json({ error: "School disabled" });
