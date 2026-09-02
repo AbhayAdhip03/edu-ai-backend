@@ -228,16 +228,26 @@ router.post("/chat", verifyFirebaseToken, async (req, res) => {
 
     // Select the appropriate API key based on the bot type requested
     const normalizedBotType = (botType || "neural").toLowerCase();
-    let apiKey = keys.chat; // Default to main chat key
-    if (normalizedBotType === "emmilite") apiKey = keys.emmiLite || keys.chat;
-    else if (normalizedBotType === "helpbot" || normalizedBotType === "help_bot") apiKey = keys.helpbot || keys.chat;
-    else if (normalizedBotType === "blockly") apiKey = keys.blockly || keys.chat;
-    else if (normalizedBotType === "translate") apiKey = keys.translate || keys.chat;
-    else if (normalizedBotType === "pyvibe") apiKey = keys.pyvibe || keys.chat;
-    else if (normalizedBotType === "word" || normalizedBotType === "word_ai") apiKey = keys.word || keys.wordAi || keys.chat;
-    else if (normalizedBotType === "ppt" || normalizedBotType === "powerpoint" || normalizedBotType === "powerai") apiKey = keys.ppt || keys.powerpoint || keys.powerAI || keys.chat;
-    else if (normalizedBotType === "excel" || normalizedBotType === "excel_ai") apiKey = keys.excel || keys.excelAi || keys.chat;
-    else if (normalizedBotType === "neural" || normalizedBotType === "neural_chat") apiKey = keys.neuralChat || keys.chat;
+    
+    // Find any available fallback key from the decrypted school keys
+    const anyAvailableSchoolKey = keys.chat || keys.helpbot || keys.emmiLite || keys.neuralChat ||
+      (typeof keys === 'object' ? Object.values(keys).find(v => typeof v === 'string' && v.trim().length > 10) : null);
+
+    let apiKey = keys[botType] || keys[normalizedBotType];
+    if (normalizedBotType === "emmilite") apiKey = keys.emmiLite || apiKey;
+    else if (normalizedBotType === "helpbot" || normalizedBotType === "help_bot") apiKey = keys.helpbot || apiKey;
+    else if (normalizedBotType === "blockly") apiKey = keys.blockly || apiKey;
+    else if (normalizedBotType === "translate") apiKey = keys.translate || apiKey;
+    else if (normalizedBotType === "pyvibe") apiKey = keys.pyvibe || apiKey;
+    else if (normalizedBotType === "word" || normalizedBotType === "word_ai") apiKey = keys.word || keys.wordAi || apiKey;
+    else if (normalizedBotType === "ppt" || normalizedBotType === "powerpoint" || normalizedBotType === "powerai") apiKey = keys.ppt || keys.powerpoint || keys.powerAI || apiKey;
+    else if (normalizedBotType === "excel" || normalizedBotType === "excel_ai") apiKey = keys.excel || keys.excelAi || apiKey;
+    else if (normalizedBotType === "neural" || normalizedBotType === "neural_chat") apiKey = keys.neuralChat || apiKey;
+
+    // If still not set, fall back to school's main chat key or any available school key
+    if (!apiKey) {
+      apiKey = keys.chat || anyAvailableSchoolKey;
+    }
 
     // Environment variable fallback if school key is missing
     if (!apiKey || typeof apiKey !== 'string' || apiKey.trim() === '') {
@@ -248,7 +258,7 @@ router.post("/chat", verifyFirebaseToken, async (req, res) => {
                process.env.OPENROUTER_API_KEY ||
                process.env.GEMINI_API_KEY ||
                process.env.AI_API_KEY ||
-               keys.chat;
+               anyAvailableSchoolKey;
     }
 
     // --- DEBUG LOGGING ---
